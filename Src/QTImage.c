@@ -1,6 +1,115 @@
 #include "../Includes/QTImage.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+
+
+
+
+
+double HueErrorAbs(double average, double val)
+{
+    double error = fabs(average - val);
+    if(error > 180.0)
+        error = 360.0 - error;
+    return error;
+}
+
+void QTImage_Encoding_Fragment_params_fill_func(QuadTreeNode* node)
+{
+    QTImage_Encoding_Fragment_params* params = calloc(1, sizeof(QTImage_Encoding_Fragment_params));
+    
+    params->maxErrorH = 0;   
+    params->minS = 1;
+    params->maxS = 0;        
+    params->minV = 1;
+    params->maxV = 0;
+    params->averageV = 0;
+
+    ColorHSV colorsHSV[4];
+
+    int count = 0;
+    for(int i = 0; i < 4; i++)
+    {
+        if(node->childrens[i] == NULL) continue;
+        colorsHSV[i] = Colors_rgb2hsv(node->childrens[i]->color);
+        params->averageH += colorsHSV[i].h;
+        params->averageS += colorsHSV[i].s;
+        params->averageV += colorsHSV[i].v;
+        count++;
+
+    }
+    params->averageH /= count; params->averageS /= count; params->averageV /= count;
+
+    for(int i = 0; i < 4; i++)
+    {
+        if(node->childrens[i] == NULL) continue;
+        if(node->childrens[i]->dataPtr == NULL)
+        {
+            params->maxErrorH = 0;       
+            params->minS = fmin(params->minS, colorsHSV[i].s);
+            params->maxS = fmax(params->maxS, colorsHSV[i].s);             
+            params->minV = fmin(params->minV, colorsHSV[i].v);
+            params->maxV = fmax(params->maxV, colorsHSV[i].v);                            
+        }
+        else
+        {
+            params->maxErrorH = fmax(params->maxErrorH, HueErrorAbs(params->averageH, colorsHSV[i].h));
+            params->minV = fmin(params->minV, ((QTImage_Encoding_Fragment_params*)(node->childrens[i]->dataPtr))->minV);
+            params->maxV = fmax(params->maxV, ((QTImage_Encoding_Fragment_params*)(node->childrens[i]->dataPtr))->maxV);
+            params->minS = fmin(params->minS, ((QTImage_Encoding_Fragment_params*)(node->childrens[i]->dataPtr))->minS);
+            params->maxS = fmax(params->maxS, ((QTImage_Encoding_Fragment_params*)(node->childrens[i]->dataPtr))->maxS);
+
+        }
+        
+    }
+    
+    node->dataPtr = params;
+    node->dataSize = sizeof(QTImage_Encoding_Fragment_params);
+}
+
+void QTImage_Encoding_Parent_Color_Blend_func(QuadTreeNode* node)
+{
+    QTImage_Encoding_Fragment_params* params = (QTImage_Encoding_Fragment_params*)node->dataPtr;   
+    uint16_t averageR = 0, averageG = 0, averageB = 0;
+    int count = 0;
+    for(int i = 0; i < 4; i++)
+    {
+        if(node->childrens[i] == NULL) continue;    
+        averageR += node->childrens[i]->color.rgba[0];
+        averageG += node->childrens[i]->color.rgba[1];
+        averageB += node->childrens[i]->color.rgba[2];
+        count++;
+    }
+    if(count == 0) return;
+    node->color.rgba[0] = averageR / count;
+    node->color.rgba[1] = averageG / count;
+    node->color.rgba[2] = averageB / count;
+}
+
+uint8_t QTImage_Encoding_Merge_func(QuadTreeNode* node)
+{
+    QTImage_Encoding_Fragment_params* params = (QTImage_Encoding_Fragment_params*)node->dataPtr;  
+    
+    double maxErrorS = 0, maxErrorV = 0, maxErrorH = 0;
+    for(int i = 0; i < 4; i++)
+    {
+        
+        if(node->childrens[i] == NULL) continue;
+        ColorHSV hsv = Colors_rgb2hsv(node->childrens[i]->color);
+        maxErrorS = fmax(maxErrorS, fabs(params->averageS - hsv.s));
+        maxErrorV = fmax(maxErrorV, fabs(params->averageV - hsv.v));
+        maxErrorH = fmax(maxErrorH, HueErrorAbs(params->averageH, hsv.h));
+    }
+
+    double dV = params->maxV - params->minV;
+    double dS = params->maxS - params->minS;
+
+    if(dV < 0.1 && dS < 0.1 && params->maxErrorH < 15)
+        return 1;        
+    return 0;
+}
+
 
 
 ColorRGB _calculateFragmentColor(BMPImage* bmp, uint32_t startX, uint32_t startY, 
@@ -113,7 +222,6 @@ QuadTreeNode* _encode(QTImage_Encode_r_params params)
     return parent;
 }
 
-
 QTImage* QTImage_Ctor()
 {
     QTImage* inst = malloc(sizeof(QTImage));
@@ -132,7 +240,7 @@ void QTImage_Dctor(QTImage** inst)
     *inst = NULL;
 }
 
-void QTImage_Serialize(QTImage* inst, char* filepath)
+void QTIMAGECALL QTImage_Serialize(QTImage* inst, char* filepath)
 {
     FILE* fp = fopen(filepath, "wb");
     if (fp == NULL)
@@ -142,12 +250,12 @@ void QTImage_Serialize(QTImage* inst, char* filepath)
     }    
     uint8_t* serializedData = NULL;
     size_t dataSize = QuadTreeNode_Serialize(inst->rootNode, &serializedData);
-    printf("%d \n", dataSize);
-    fwrite(inst, sizeof(uint32_t), 2, fp); // save width/height;
-    fwrite(serializedData, sizeof(uint8_t), dataSize, fp); // save data;
+    fwrite(inst, sizeof(uint32_t), 2, fp);
+    fwrite(serializedData, sizeof(uint8_t), dataSize, fp);
     fclose(fp);
 }
-QTImage* QTImage_Deserialize(char* filepath)
+
+QTImage* QTIMAGECALL QTImage_Deserialize(char* filepath)
 {
     FILE* fp = fopen(filepath, "rb");
     if (fp == NULL)
@@ -171,34 +279,52 @@ QTImage* QTImage_Deserialize(char* filepath)
     return qtImage;    
 }
 
-
-
 size_t QTImage_AllocSize(QTImage* inst)
 {   
     return QuadTreeNode_AllocSize(inst->rootNode);
 }
 
-QTImage* QTImage_Encode(QTImage_Encode_params params)
+QTImage* QTIMAGECALL QTImage_Encode(QTImage_Encode_params params)
 {
-    uint8_t requireTreeDepth = (uint8_t)ceil(log2(params.bmp->infoHeader.width > params.bmp->infoHeader.height ?  params.bmp->infoHeader.width :params.bmp->infoHeader.height));
+    if(params.filename == NULL)
+        exit(-10);
+    
+    BMPImage* bmp = BMPImage_FromFile(params.filename);
+    if(bmp == NULL)
+        exit(-11);    
+
+    if(params.encoding_child_megre_func == NULL)
+        params.encoding_child_megre_func = QTImage_Encoding_Merge_func;
+    if(params.encoding_fragment_params_fill_func == NULL)
+        params.encoding_fragment_params_fill_func = QTImage_Encoding_Fragment_params_fill_func;
+    if(params.encoding_parent_color_blend_func == NULL)
+        params.encoding_parent_color_blend_func = QTImage_Encoding_Parent_Color_Blend_func;
+    
+
+    uint8_t requireTreeDepth = (uint8_t)ceil(log2(bmp->infoHeader.width > bmp->infoHeader.height ?  bmp->infoHeader.width : bmp->infoHeader.height));
     uint8_t treeDepth = requireTreeDepth >= params.maxDepth ? params.maxDepth : requireTreeDepth;
     uint16_t minFragScale = pow(2, requireTreeDepth - treeDepth); 
    
-    QuadTreeNode* node =_encode((QTImage_Encode_r_params){params.bmp, params.maxDepth, treeDepth, 0, 0, minFragScale,
+    QuadTreeNode* node =_encode((QTImage_Encode_r_params){bmp, params.maxDepth, treeDepth, 0, 0, minFragScale,
                                 params.encoding_fragment_params_fill_func, params.encoding_parent_color_blend_func, params.encoding_child_megre_func});
 
+    
     QTImage* compressedImage = QTImage_Ctor();
-    compressedImage->height = params.bmp->infoHeader.height;
-    compressedImage->width = params.bmp->infoHeader.width;
+    compressedImage->height = bmp->infoHeader.height;
+    compressedImage->width = bmp->infoHeader.width;
     compressedImage->rootNode = node;
     compressedImage->depth = treeDepth; 
+
+
+    BMPImage_Dctor(&bmp);
     return compressedImage;
 }
 
-void QTImage_Decode(QTImage* qtImage, BMPImage** bmp)
+void QTIMAGECALL QTImage_Decode(QTImage* qtImage, char* filename)
 {
     uint8_t requireTreeDepth = (uint8_t)ceil(log2(qtImage->width > qtImage->height ?  qtImage->width : qtImage->height));
-    *bmp = BMPImage_Ctor(qtImage->width, qtImage->height, 24);
-
-    _decode(*bmp, qtImage->rootNode, qtImage->depth, requireTreeDepth, 0, 0);      
+    BMPImage* bmp = BMPImage_Ctor(qtImage->width, qtImage->height, 24);
+    _decode(bmp, qtImage->rootNode, qtImage->depth, requireTreeDepth, 0, 0);    
+    BMPImage_Save(bmp, filename);
+    BMPImage_Dctor(&bmp);    
 }
