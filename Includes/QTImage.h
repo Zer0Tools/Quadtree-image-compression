@@ -18,15 +18,12 @@ extern "C"
 {
 #endif
 
-
-
 typedef struct qtimage_t
 {
     uint32_t width;
     uint32_t height;
     uint8_t depth;    
     QuadTreeNode* rootNode;
-
 } QTImage;
 
 typedef struct
@@ -63,38 +60,25 @@ typedef struct
     double averageV;
 
 } QTImage_Encoding_Fragment_params;
-
 static double HueErrorAbs(double average, double val);
-
 static void QTImage_Encoding_Fragment_params_fill_func(QuadTreeNode* node);
-
 static void QTImage_Encoding_Parent_Color_Blend_func(QuadTreeNode* node);
-
 static uint8_t QTImage_Encoding_Merge_func(QuadTreeNode* node);
-
 QTImage* QTImage_Ctor();
 void QTImage_Dctor(QTImage** inst);
 size_t QTImage_AllocSize(QTImage* inst);
-
 QTIMAGE_API void __cdecl QTImage_Serialize(QTImage* inst, char* filepath);
 QTIMAGE_API QTImage* __cdecl QTImage_Deserialize(char* filepath);
 QTIMAGE_API QTImage* __cdecl QTImage_Encode(QTImage_Encode_params params);
 QTIMAGE_API void __cdecl QTImage_Decode(QTImage* qtImage, char* filename);
-
-
-
-
 static ColorRGB _calculateFragmentColor(BMPImage* bmp, uint32_t startX, uint32_t startY, 
                                 uint32_t endX, uint32_t endY);
 static void _decode(BMPImage* bmp, QuadTreeNode* treeNode, uint8_t depth, uint8_t requireDepth, 
                     unsigned int x, unsigned int y);
 static QuadTreeNode* _encode(QTImage_Encode_r_params params);
-
 #ifdef __cplusplus
 }
 #endif
-
-
 #endif
 
 

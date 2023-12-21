@@ -74,8 +74,7 @@ static QuadTreeNode* _QuadTreeNode_Deserialize_Leaf(uint8_t* data, size_t* dataO
 
 static QuadTreeNode* _QuadTreeNode_Deserialize_R(uint8_t* data, size_t* dataOffset)
 {
-    uint8_t childmask = data[*dataOffset];
-    
+    uint8_t childmask = data[*dataOffset]; 
     QuadTreeNode* node = QuadTreeNode_ctor();
     if((childmask & 8) == 8)
     {
@@ -128,7 +127,6 @@ static QuadTreeNode* _QuadTreeNode_Deserialize_R(uint8_t* data, size_t* dataOffs
             (*dataOffset) -= 1;
             node->childrens[0] = _QuadTreeNode_Deserialize_R(data, dataOffset);   
         }            
-        
     }              
     return node;   
 }
@@ -194,9 +192,7 @@ static size_t _QuadTreeNode_Serialize_R(QuadTreeNode* nodePtr, uint8_t* data, si
             childmask |= 128;            
         totalOffset+= _QuadTreeNode_Serialize_R(nodePtr->childrens[3], data, offset + totalOffset, depth + 1); // 12        
     } 
-    // printf("%d  %d  %d\n", offset + totalOffset, childmask, depth);
     data[offset + totalOffset] = childmask; 
-    //test_counter++;
     return totalOffset + 1;
 }
 

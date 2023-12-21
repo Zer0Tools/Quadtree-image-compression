@@ -3,10 +3,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-
-
-
-
 double HueErrorAbs(double average, double val)
 {
     double error = fabs(average - val);
@@ -151,16 +147,9 @@ void _decode(BMPImage* bmp, QuadTreeNode* treeNode, uint8_t depth, uint8_t requi
         ColorRGB depthColor;
         depthColor.ecolor = 0;
         depthColor.rgba[2] = depthColor_r;
-        // hsvColor.s = 1.0;
-        // hsvColor.v = 1.0;
-        // ColorRGB rgbColor = Colors_hsv2rgb(hsvColor);
         for(uint16_t fx = 0; fx < fragSizeX; fx++)
             for(uint16_t fy = 0; fy < fragSizeY; fy++)
                 BMPImage_SetPixel(bmp, x + fx, y + fy, treeNode->color);
-                //BMPImage_SetPixel(bmp, x + fx, y + fy, depthColor);
-                //set_pixel_rgb(bmp, x + fx, y + fy, hsvColor.s * 255.0, hsvColor.s * 255.0, hsvColor.s * 255.0);
-                //set_pixel_rgb(bmp, x + fx, y + fy, hsvColor.h * 0.7, hsvColor.h * 0.7, hsvColor.h * 0.7);
-                //set_pixel_rgb(bmp, x + fx, y + fy, rgbColor.rgba[0], rgbColor.rgba[1], rgbColor.rgba[2]);
         return;
     }
     uint16_t nodeSize = pow(2, requireDepth - 1);
@@ -174,7 +163,6 @@ QuadTreeNode* _encode(QTImage_Encode_r_params params)
 {
     
     if(params.x >= params.bmp->infoHeader.width || params.y >= params.bmp->infoHeader.height) return NULL;
-    //printf("encoding %d || %d\n", x, y);
     QuadTreeNode* parent = QuadTreeNode_ctor();
     if(params.depth == 0)
     {
@@ -304,7 +292,7 @@ QTImage* QTIMAGECALL QTImage_Encode(QTImage_Encode_params params)
     uint8_t requireTreeDepth = (uint8_t)ceil(log2(bmp->infoHeader.width > bmp->infoHeader.height ?  bmp->infoHeader.width : bmp->infoHeader.height));
     uint8_t treeDepth = requireTreeDepth >= params.maxDepth ? params.maxDepth : requireTreeDepth;
     uint16_t minFragScale = pow(2, requireTreeDepth - treeDepth); 
-   
+    
     QuadTreeNode* node =_encode((QTImage_Encode_r_params){bmp, params.maxDepth, treeDepth, 0, 0, minFragScale,
                                 params.encoding_fragment_params_fill_func, params.encoding_parent_color_blend_func, params.encoding_child_megre_func});
 

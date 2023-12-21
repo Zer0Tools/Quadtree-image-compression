@@ -32,10 +32,4 @@ static QuadTreeNode*   _QuadTreeNode_Deserialize_R(uint8_t* data, size_t* dataSi
 
 static uint8_t _QuadTreeNode_ReadMask(uint8_t* data, size_t offset);
 
-
-
-
-
-
-
 #endif
