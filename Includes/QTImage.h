@@ -58,7 +58,6 @@ typedef struct
     double averageH;
     double averageS;    
     double averageV;
-
 } QTImage_Encoding_Fragment_params;
 static double HueErrorAbs(double average, double val);
 static void QTImage_Encoding_Fragment_params_fill_func(QuadTreeNode* node);
