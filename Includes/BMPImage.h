@@ -3,6 +3,7 @@
 #define BMP_IMAGE_H
 #include <stdint.h>
 #include <stdio.h>
+#include "ctype.h"
 #include<memory.h>
 #include "../Includes/colorTypes.h"
 #define BMP_HEADER_SIZE 14
@@ -39,6 +40,8 @@ void BMPImage_Dctor(BMPImage** inst);
 BMPImage* BMPImage_FromFile(const char* filepath);
 void BMPImage_Save(const BMPImage* inst, const char* filepath);
 void BMPImage_SetPixel(BMPImage* inst, int x, int y, ColorRGB color);
-ColorRGB BMPImage_GetPixel(BMPImage* inst, int x, int y);
+ColorRGB BMPImage_GetPixel(BMPImage* inst, uint32_t x, uint32_t y);
+uint32_t BMPImage_GetWidth(BMPImage* inst);
+uint32_t BMPImage_GetHeight(BMPImage* inst);
 static uint32_t _BMPImage_GetFileFullSize(FILE* fp);
 #endif

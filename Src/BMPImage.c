@@ -6,7 +6,7 @@ BMPImage* BMPImage_Ctor(int width, int height, int bitsPerPixel)
 {
     BMPImage* inst = (BMPImage*)calloc(1, sizeof(BMPImage));
     int pixelBufferSize = width * height * bitsPerPixel / 8;
-    uint8_t* pixelBuffer = (uint8_t*)calloc(width * height * bitsPerPixel / 8, sizeof(uint8_t));
+    uint8_t* pixelBuffer = (uint8_t*)calloc(pixelBufferSize, sizeof(uint8_t));
 
     inst->header.signature[0] = 'B';
     inst->header.signature[1] = 'M';
@@ -54,7 +54,6 @@ BMPImage* BMPImage_FromFile(const char* filepath)
     fread(buffer, 1, bmpPixelBufferSize, fp);
     fclose(fp);
     bmpImage->pixelBuffer = buffer;
-
     return bmpImage;   
 }
 
@@ -82,7 +81,7 @@ void BMPImage_SetPixel(BMPImage* inst, int x, int y, ColorRGB color)
     memcpy((void*)(inst->pixelBuffer) + offset * depth, &color, depth); 
 }
 
-ColorRGB BMPImage_GetPixel(BMPImage* inst, int x, int y)
+ColorRGB BMPImage_GetPixel(BMPImage* inst, uint32_t x, uint32_t y)
 {
     ColorRGB color;
     color.ecolor = 0;
@@ -91,6 +90,15 @@ ColorRGB BMPImage_GetPixel(BMPImage* inst, int x, int y)
     memcpy(&color, (void*)(inst->pixelBuffer) + offset * depth, depth);
     return color;       
 }
+uint32_t  BMPImage_GetWidth(BMPImage* inst)
+{
+    return inst->infoHeader.width;
+}
+uint32_t BMPImage_GetHeight(BMPImage* inst)
+{
+    return inst->infoHeader.height;
+}
+
 
 static uint32_t _BMPImage_GetFileFullSize(FILE* fp)
 {

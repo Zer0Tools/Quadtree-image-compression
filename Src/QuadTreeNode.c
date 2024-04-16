@@ -2,69 +2,51 @@
 #include <stdio.h>
 #include "../Includes/QuadTreeNode.h"
 
-QuadTreeNode* QuadTreeNode_ctor()
+QuadTreeNode QuadTreeNode_Ctor()
 {
-    QuadTreeNode* node = calloc(1, sizeof(QuadTreeNode));    
+    QuadTreeNode node = calloc(1, sizeof(struct QuadTreeNode_t));    
     return node;
 }
 
-void QuadTreeNode_dctor(QuadTreeNode** nodePtr)
+void QuadTreeNode_Dctor(QuadTreeNode* node)
 {
-    if((*nodePtr)->isLeaf == 0)
+    if((*node)->isLeaf == 0)
     {
         for(int i = 0; i < 4; i++)
-            if(((*nodePtr)->childrens)[i] != NULL)
-                QuadTreeNode_dctor(&(*nodePtr)->childrens[i]);
+            if(((*node)->childrens)[i] != NULL)
+                QuadTreeNode_Dctor(&(*node)->childrens[i]);
     }
-    if((*nodePtr)->dataPtr != NULL)
-        free((*nodePtr)->dataPtr);
-    free(*nodePtr);
-    *nodePtr = NULL;
+    free(*node);
+    *node = NULL;
 }
 
-size_t _QuadTreeNode_AllocSize(QuadTreeNode* nodePtr)
+size_t QuadTreeNode_NodesCount(QuadTreeNode node)
 {
-    if(nodePtr->isLeaf == 1)
-        return sizeof(QuadTreeNode);
-    size_t size = 0;
-    for(int i = 0; i < 4; i++)
-        if(nodePtr->childrens[i] != NULL)
-            size+= _QuadTreeNode_AllocSize(nodePtr->childrens[i]);
-    return size;
+    return _QuadTreeNode_NodesCount_R(node);
 }
 
-size_t QuadTreeNode_AllocSize(QuadTreeNode* nodePtr)
+size_t QuadTreeNode_LeafsCount(QuadTreeNode node)
 {
-    return _QuadTreeNode_AllocSize(nodePtr);
+    return _QuadTreeNode_LeafsCount_R(node);    
 }
 
-size_t QuadTreeNode_NodesCount(QuadTreeNode* nodePtr)
-{
-    return _QuadTreeNode_NodesCount_R(nodePtr);
-}
-
-size_t QuadTreeNode_LeafsCount(QuadTreeNode* nodePtr)
-{
-    return _QuadTreeNode_LeafsCount_R(nodePtr);    
-}
-
-QuadTreeNode* QuadTreeNode_Deserialize(uint8_t* data, size_t dataSize)
+QuadTreeNode QuadTreeNode_Deserialize(uint8_t* data, size_t dataSize, uint8_t* maxDepth)
 {
     dataSize-=1;
-    return _QuadTreeNode_Deserialize_R(data, &dataSize);
+    return _QuadTreeNode_Deserialize_R(data, &dataSize, 0, maxDepth);
 }
 
-size_t QuadTreeNode_Serialize(QuadTreeNode* inst, uint8_t** data)
+size_t QuadTreeNode_Serialize(QuadTreeNode inst, uint8_t** data)
 {
     size_t nodesCount = QuadTreeNode_NodesCount(inst), leafsCount = QuadTreeNode_LeafsCount(inst);
     (*data) = calloc(leafsCount * 3 + nodesCount, sizeof(uint8_t));
-    _QuadTreeNode_Serialize_R(inst, (*data), 0, 0);
+    _QuadTreeNode_Serialize_R(inst, (*data), 0);
     return leafsCount * 3 + nodesCount;    
 }
 
-static QuadTreeNode* _QuadTreeNode_Deserialize_Leaf(uint8_t* data, size_t* dataOffset)
+static QuadTreeNode _QuadTreeNode_Deserialize_Leaf(uint8_t* data, size_t* dataOffset)
 {
-    QuadTreeNode* leafNode = QuadTreeNode_ctor();
+    QuadTreeNode leafNode = QuadTreeNode_Ctor();
     leafNode->color.rgba[0] = data[*dataOffset];
     leafNode->color.rgba[1] = data[*dataOffset + 1];
     leafNode->color.rgba[2] = data[*dataOffset + 2];
@@ -72,133 +54,79 @@ static QuadTreeNode* _QuadTreeNode_Deserialize_Leaf(uint8_t* data, size_t* dataO
     return leafNode;
 }
 
-static QuadTreeNode* _QuadTreeNode_Deserialize_R(uint8_t* data, size_t* dataOffset)
+static QuadTreeNode _QuadTreeNode_Deserialize_R(uint8_t* data, size_t* dataOffset, uint8_t depth, uint8_t* maxDepth)
 {
+    depth++;
+    if(depth > *maxDepth)
+        *maxDepth = depth;
+
     uint8_t childmask = data[*dataOffset]; 
-    QuadTreeNode* node = QuadTreeNode_ctor();
-    if((childmask & 8) == 8)
+    QuadTreeNode node = QuadTreeNode_Ctor();
+    for(int i = 3; i>= 0; i--)
     {
-        if((childmask & 128) == 128)
+        if((childmask & (1 << i)) == (1 << i))
         {
-            (*dataOffset) -= 3;
-            node->childrens[3] = _QuadTreeNode_Deserialize_Leaf(data, dataOffset); 
-        }
-        else
-        {
-            (*dataOffset) -= 1;
-            node->childrens[3] = _QuadTreeNode_Deserialize_R(data, dataOffset);   
-        }       
-    }      
-    if((childmask & 4) == 4)
-    {
-        if((childmask & 64) == 64)
-        {
-            (*dataOffset) -= 3;
-            node->childrens[2] = _QuadTreeNode_Deserialize_Leaf(data, dataOffset); 
-        }
-        else
-        {
-            (*dataOffset) -= 1;
-            node->childrens[2] = _QuadTreeNode_Deserialize_R(data, dataOffset);   
-        }      
-    }       
-    if((childmask & 2) == 2)
-    {
-        if((childmask & 32) == 32)
-        {
-            (*dataOffset) -= 3;
-            node->childrens[1] = _QuadTreeNode_Deserialize_Leaf(data, dataOffset); 
-        }
-        else
-        {
-            (*dataOffset) -= 1;
-            node->childrens[1] = _QuadTreeNode_Deserialize_R(data, dataOffset);   
-        }       
-    }  
-    if((childmask & 1) == 1)
-    {
-        if((childmask & 16) == 16)
-        {
-            (*dataOffset) -= 3;
-            node->childrens[0] = _QuadTreeNode_Deserialize_Leaf(data, dataOffset); 
-        }
-        else
-        {
-            (*dataOffset) -= 1;
-            node->childrens[0] = _QuadTreeNode_Deserialize_R(data, dataOffset);   
-        }            
-    }              
+            if((childmask & (1 << (4 + i))) == (1 << (4 + i)))
+            {
+                (*dataOffset) -= 3;
+                node->childrens[i] = _QuadTreeNode_Deserialize_Leaf(data, dataOffset); 
+            }
+            else
+            {
+                (*dataOffset) -= 1;
+                node->childrens[i] = _QuadTreeNode_Deserialize_R(data, dataOffset, depth, maxDepth);   
+            }       
+        }     
+    }
     return node;   
 }
 
-static size_t _QuadTreeNode_NodesCount_R(QuadTreeNode* nodePtr)
+static size_t _QuadTreeNode_NodesCount_R(QuadTreeNode node)
 {
-    if(nodePtr->isLeaf == 1 || nodePtr->childrens == NULL)
+    if(node->isLeaf == 1 || node->childrens == NULL)
         return 0;
     size_t size =  1;
     for(int i = 0; i < 4; i++)
-        if(nodePtr->childrens[i] != NULL)
-            size+= _QuadTreeNode_NodesCount_R(nodePtr->childrens[i]);
+        if(node->childrens[i] != NULL)
+            size+= _QuadTreeNode_NodesCount_R(node->childrens[i]);
     return size;
 }
 
-static size_t _QuadTreeNode_LeafsCount_R(QuadTreeNode* nodePtr)
+static size_t _QuadTreeNode_LeafsCount_R(QuadTreeNode node)
 {
-    if(nodePtr->isLeaf == 1 || nodePtr->childrens == NULL)
+    if(node->isLeaf == 1 || node->childrens == NULL)
         return 1;
     size_t size =  0;
     for(int i = 0; i < 4; i++)
-        if(nodePtr->childrens[i] != NULL)
-            size+= _QuadTreeNode_LeafsCount_R(nodePtr->childrens[i]);
+        if(node->childrens[i] != NULL)
+            size+= _QuadTreeNode_LeafsCount_R(node->childrens[i]);
     return size;    
 }
 
-static size_t _QuadTreeNode_Serialize_R(QuadTreeNode* nodePtr, uint8_t* data, size_t offset, size_t depth)
+static size_t _QuadTreeNode_Serialize_R(QuadTreeNode node, uint8_t* data, size_t offset)
 {
-    if(nodePtr->isLeaf)
+    if(node->isLeaf)
     {
-        data[offset] = nodePtr->color.rgba[0];
-        data[offset + 1] = nodePtr->color.rgba[1];
-        data[offset + 2] = nodePtr->color.rgba[2];
+        data[offset] = node->color.rgba[0];
+        data[offset + 1] = node->color.rgba[1];
+        data[offset + 2] = node->color.rgba[2];
         return 3;
     }
     size_t totalOffset = 0;
     uint8_t childmask = 0;
-    if(nodePtr->childrens[0] != NULL)
+    for(int i = 0; i < 4; i++)
     {
-        childmask |= 1;
-        if(nodePtr->childrens[0]->isLeaf == 1)
-            childmask |= 16;
-        totalOffset+= _QuadTreeNode_Serialize_R(nodePtr->childrens[0], data, offset, depth + 1); // 3        
+        if(node->childrens[i] != NULL)
+        {
+            childmask |= (1 << i);     
+            if(node->childrens[i]->isLeaf == 1)
+                childmask |= (1 << (4 + i));       
+            totalOffset+= _QuadTreeNode_Serialize_R(node->childrens[i], data, offset + totalOffset);            
+        }
     }
-    if(nodePtr->childrens[1] != NULL)
-    {
-        childmask |= 2;
-        if(nodePtr->childrens[1]->isLeaf == 1)
-            childmask |= 32;        
-        totalOffset+= _QuadTreeNode_Serialize_R(nodePtr->childrens[1], data, offset + totalOffset, depth + 1); // 6        
-    }
-    if(nodePtr->childrens[2] != NULL)
-    {
-        childmask |= 4;
-        if(nodePtr->childrens[2]->isLeaf == 1)
-            childmask |= 64;             
-        totalOffset+= _QuadTreeNode_Serialize_R(nodePtr->childrens[2], data, offset + totalOffset, depth + 1); // 9       
-    }  
-    if(nodePtr->childrens[3] != NULL)
-    {
-        childmask |= 8;
-        if(nodePtr->childrens[3]->isLeaf == 1)
-            childmask |= 128;            
-        totalOffset+= _QuadTreeNode_Serialize_R(nodePtr->childrens[3], data, offset + totalOffset, depth + 1); // 12        
-    } 
     data[offset + totalOffset] = childmask; 
     return totalOffset + 1;
 }
 
 
-static uint8_t _QuadTreeNode_ReadMask(uint8_t* data, size_t offset)
-{
-    return 0;    
-}
 
